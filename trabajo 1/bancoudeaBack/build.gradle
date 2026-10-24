@@ -1,9 +1,10 @@
 plugins {
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'me.champeau.jmh' version '0.7.2'
-	id "org.sonarqube" version "4.4.1.3373"
+	id "org.sonarqube" version "7.5.0.8588"
 }
 
 group = 'udea'
@@ -11,11 +12,13 @@ version = '0.0.1-SNAPSHOT'
 
 sonar {
 	properties {
-		property "sonar.projectKey", "hoqanu67_QA"
+		property "sonar.projectKey", "Satshman_QA"
 		property "sonar.organization", "hoqanu67"
 		property "sonar.host.url", "https://sonarcloud.io"
+		property "sonar.coverage.exclusions", "**/entity/**,**/DTO/**,**/BancoudeaBackApplication.java,**/mapper/**"
 	}
 }
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(25)
@@ -43,4 +46,14 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		csv.required = false
+		html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+	}
 }

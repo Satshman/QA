@@ -7,6 +7,7 @@ import udea.bancoudeaBack.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -31,20 +32,26 @@ public class CustomerService {
     }
 
     public CustomerDTO createCustomer(CustomerDTO customerDTO) {
+        validateCustomerData(customerDTO);
+        Customer customer = customerMapper.toEntity(customerDTO);
+        return customerMapper.toDTO(customerRepository.save(customer));
+    }
 
-        if (customerDTO.getFirstName() == null)
+    private void validateCustomerData(CustomerDTO customerDTO) {
+        if (customerDTO.getFirstName() == null) {
             throw new IllegalArgumentException("First name cannot be null");
-        if (customerDTO.getLastName() == null)
+        }
+        if (customerDTO.getLastName() == null) {
             throw new IllegalArgumentException("Last name cannot be null");
-        if (customerDTO.getAccountNumber() == null)
+        }
+        if (customerDTO.getAccountNumber() == null) {
             throw new IllegalArgumentException("Account number cannot be null");
+        }
         if (customerDTO.getBalance() == null) {
             throw new IllegalArgumentException("Balance cannot be null");
         }
-        if (customerDTO.getBalance().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+        if (customerDTO.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Balance cannot be negative");
         }
-        Customer customer = customerMapper.toEntity(customerDTO);
-        return customerMapper.toDTO(customerRepository.save(customer));
     }
 }

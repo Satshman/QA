@@ -12,59 +12,36 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TransactionService {
 
-    @Autowired
-    private TransactionRepository transactionRepository;
+    private final TransactionRepository transactionRepository;
+    private final CustomerRepository customerRepository;
+    private final TransactionMapper transactionMapper;
 
     @Autowired
-    private CustomerRepository customerRepository;
-
-    @Autowired
-    private TransactionMapper transactionMapper;
+    public TransactionService(TransactionRepository transactionRepository,
+                              CustomerRepository customerRepository,
+                              TransactionMapper transactionMapper) {
+        this.transactionRepository = transactionRepository;
+        this.customerRepository = customerRepository;
+        this.transactionMapper = transactionMapper;
+    }
 
     @Transactional
     public TransactionDTO transferMoney(TransactionDTO transactionDTO) {
-        // validar que los numeros de cuentas no sean nulos
-        if (transactionDTO.getSenderAccountNumber() == null) {
-            throw new IllegalArgumentException("Sender account number cannot be null");
-        }
+        validateTransactionRequest(transactionDTO);
 
-        if (transactionDTO.getReceiverAccountNumber() == null) {
-            throw new IllegalArgumentException("Receiver account number cannot be null");
-        }
-
-        // Validar que los numeros de cuentas no sean iguales
-        if (Objects.equals(transactionDTO.getSenderAccountNumber(), transactionDTO.getReceiverAccountNumber())) {
-            throw new IllegalArgumentException("Sender and Receiver account numbers cannot be the same");
-        }
-
-        // Validar que el monto no sea nulo
-        if (transactionDTO.getAmount() == null) {
-            throw new IllegalArgumentException("Amount cannot be null");
-        }
-
-        // Validar que el monto sea mayor a 0
-        if (transactionDTO.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Amount cannot be negative or zero");
-        }
-
-        // Buscar los clientes por numero de cuenta
         Customer sender = customerRepository.findByAccountNumber(transactionDTO.getSenderAccountNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Sender Account Number not found"));
 
         Customer receiver = customerRepository.findByAccountNumber(transactionDTO.getReceiverAccountNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Receiver Account Number not found"));
 
-        // Validar que el remitente tenga saldo suficiente
-        if (sender.getBalance().subtract(transactionDTO.getAmount()).compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Sender balance not enough");
-        }
+        validateSufficientBalance(sender, transactionDTO.getAmount());
 
         // Realiza la transferencia
         sender.setBalance(sender.getBalance().subtract(transactionDTO.getAmount()));
@@ -74,7 +51,7 @@ public class TransactionService {
         customerRepository.save(sender);
         customerRepository.save(receiver);
 
-        // Fecha de tranferencia
+        // Fecha de transferencia
         LocalDateTime timestamp = LocalDateTime.now();
 
         // Crear y Guardar la transaccion
@@ -88,13 +65,35 @@ public class TransactionService {
         return transactionMapper.toDTO(transaction);
     }
 
+    private void validateTransactionRequest(TransactionDTO transactionDTO) {
+        if (transactionDTO.getSenderAccountNumber() == null) {
+            throw new IllegalArgumentException("Sender account number cannot be null");
+        }
+        if (transactionDTO.getReceiverAccountNumber() == null) {
+            throw new IllegalArgumentException("Receiver account number cannot be null");
+        }
+        if (Objects.equals(transactionDTO.getSenderAccountNumber(), transactionDTO.getReceiverAccountNumber())) {
+            throw new IllegalArgumentException("Sender and Receiver account numbers cannot be the same");
+        }
+        if (transactionDTO.getAmount() == null) {
+            throw new IllegalArgumentException("Amount cannot be null");
+        }
+        if (transactionDTO.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Amount cannot be negative or zero");
+        }
+    }
+
+    private void validateSufficientBalance(Customer sender, BigDecimal amount) {
+        if (sender.getBalance().subtract(amount).compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Sender balance not enough");
+        }
+    }
+
     public List<TransactionDTO> getTransactionsForAccount(String accountNumber) {
-        // Validar que el numero de cuenta no sea nulo
         if (accountNumber == null) {
             throw new IllegalArgumentException("Account number cannot be null");
         }
 
-        // Buscar las transacciones por numero de cuenta
         return transactionRepository.findBySenderAccountNumberOrReceiverAccountNumber(accountNumber, accountNumber)
                 .stream().map(transactionMapper::toDTO).toList();
     }
